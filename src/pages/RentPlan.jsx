@@ -4,7 +4,7 @@ import { MONTHS } from '../utils/constants';
 import Modal from '../components/Modal';
 
 export default function RentPlan() {
-  const { properties, tenants, assignments, rentPlans, storage, refreshData } = useApp();
+  const { properties, tenants, assignments, rentPlans, rentRecords, storage, refreshData } = useApp();
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedAssignment, setSelectedAssignment] = useState('');
   const [editingMonth, setEditingMonth] = useState(null);
@@ -58,6 +58,26 @@ export default function RentPlan() {
       m.monthIndex === monthIndex ? { ...m, ...data } : m
     );
     storage.saveRentPlan({ ...currentPlan, months });
+
+    if ((data.status === 'paid' || data.status === 'partial') && (data.paidAmount || data.rentAmount)) {
+      const amount = data.paidAmount || data.rentAmount;
+      const existing = rentRecords.find(
+        r => r.assignmentId === currentPlan.assignmentId && r.month === monthIndex && r.year === currentPlan.year
+      );
+      if (!existing) {
+        storage.saveRentRecord({
+          assignmentId: currentPlan.assignmentId,
+          month: monthIndex,
+          year: currentPlan.year,
+          amount: Number(amount),
+          paymentDate: new Date().toISOString().split('T')[0],
+          dueDate: data.dueDate || `${currentPlan.year}-${String(monthIndex + 1).padStart(2, '0')}-10`,
+          paymentMode: 'UPI',
+          notes: `Auto-created from rent plan (${data.status})`,
+        });
+      }
+    }
+
     refreshData();
     setEditingMonth(null);
     setEditingPlan(null);
